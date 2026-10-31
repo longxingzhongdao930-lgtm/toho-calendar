@@ -1307,7 +1307,10 @@ function EventForm({
   onCancel: () => void;
 }) {
   const [draft, setDraft] = useState(value),
-    [error, setError] = useState("");
+    [error, setError] = useState(""),
+    [excludedInput, setExcludedInput] = useState(
+      (value.excludedDates || []).join(", "),
+    );
   const put = <K extends keyof CalendarEvent>(key: K, v: CalendarEvent[K]) =>
     setDraft((d) => ({ ...d, [key]: v }));
   return (
@@ -1321,7 +1324,12 @@ function EventForm({
             title: draft.title.trim(),
             endDate: draft.repeat === "none" ? draft.endDate : draft.date,
             excludedDates:
-              draft.repeat === "none" ? undefined : draft.excludedDates,
+              draft.repeat === "none"
+                ? undefined
+                : excludedInput
+                    .split(",")
+                    .map((v) => v.trim())
+                    .filter(Boolean),
           };
           validateEvents([{ ...v, id: v.id || "new" }]);
           onSave(v);
@@ -1488,16 +1496,8 @@ function EventForm({
           実施しない日（カンマ区切り）
           <input
             placeholder="YYYY-MM-DD, YYYY-MM-DD"
-            value={(draft.excludedDates || []).join(", ")}
-            onChange={(e) =>
-              put(
-                "excludedDates",
-                e.target.value
-                  .split(",")
-                  .map((v) => v.trim())
-                  .filter(Boolean),
-              )
-            }
+            value={excludedInput}
+            onChange={(e) => setExcludedInput(e.target.value)}
           />
         </label>
       )}

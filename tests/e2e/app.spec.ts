@@ -148,6 +148,11 @@ test("string lesson shortcut requires a time and preserves its kind for filterin
   await expect(page.getByLabel("開始時刻", { exact: true })).toHaveValue("");
   await page.getByLabel("開始時刻", { exact: true }).fill("13:00");
   await page.getByLabel("繰り返し", { exact: true }).selectOption("weekly");
+  const exceptions = page.getByLabel("実施しない日（カンマ区切り）", {
+    exact: true,
+  });
+  await exceptions.fill("2026-11-30");
+  await exceptions.pressSequentially(", 2026-12-07");
   await page.getByRole("button", { name: "保存する" }).click();
   await page.getByLabel("予定の種類").selectOption("弦楽器レッスン");
   await expect(page.locator(".dated-row")).toHaveCount(1);
@@ -160,6 +165,10 @@ test("string lesson shortcut requires a time and preserves its kind for filterin
   await expect(page.locator(".modal")).toContainText("弦楽器レッスン");
   await expect(page.locator(".modal")).toContainText("毎週");
   await expect(page.locator(".modal")).toContainText("ユーザー提供の予定");
+  await page.getByRole("button", { name: "予定を編集", exact: true }).click();
+  await expect(
+    page.getByLabel("実施しない日（カンマ区切り）", { exact: true }),
+  ).toHaveValue("2026-11-30, 2026-12-07");
 });
 test("adding a JSON file keeps existing events and does not duplicate a second import", async ({
   page,

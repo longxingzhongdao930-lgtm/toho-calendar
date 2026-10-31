@@ -2323,3 +2323,52 @@ main {
     min-height: 40px;
   }
 }
+.personal-shortcuts {
+  padding: 0 0 22px;
+  margin-bottom: 24px;
+  border-bottom: 1px solid var(--line);
+}
+.personal-shortcuts h2 {
+  font-size: 14px;
+  font-weight: 600;
+}
+.personal-shortcuts p {
+  font-size: 12px;
+  line-height: 1.9;
+  color: var(--muted);
+  margin: 10px 0 15px;
+}
+.personal-shortcuts > div,
+.personal-kind-options > div {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.personal-shortcuts .secondary-button {
+  font-size: 12px;
+  min-height: 44px;
+}
+.personal-kind-options {
+  border: 0;
+  padding: 0;
+  margin: 0 0 20px;
+}
+.personal-kind-options legend {
+  font-size: 11px;
+  margin-bottom: 10px;
+}
+.personal-kind-options button {
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  font-size: 12px;
+  min-height: 44px;
+}
+.personal-kind-options button[aria-pressed="true"] {
+  border-color: var(--blue);
+  background: var(--hover);
+  color: var(--navy);
+}
+.modal-actions {
+  flex-wrap: wrap;
+}

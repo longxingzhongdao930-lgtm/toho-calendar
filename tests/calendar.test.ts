@@ -68,3 +68,54 @@ describe("calendar data", () => {
     expect(() => decodeBackup("broken")).toThrow();
   });
 });
+
+describe("private schedule imports", () => {
+  it("preserves existing data and deduplicates repeated imports and identical contents", async () => {
+    const { mergeEvents } = await import("../lib/calendar");
+    const original = {
+      ...blankEvent("2027-03-01"),
+      id: "old",
+      title: "既存テスト",
+    };
+    const added = { ...original, id: "new", title: "追加テスト" };
+    expect(mergeEvents([original], [added])).toHaveLength(2);
+    expect(mergeEvents(mergeEvents([original], [added]), [added])).toHaveLength(
+      2,
+    );
+    expect(
+      mergeEvents([original], [{ ...original, id: "different" }]),
+    ).toHaveLength(1);
+  });
+  it("allows a private concert overlay without duplicating its official reference", async () => {
+    const { mergeEvents } = await import("../lib/calendar");
+    const reference = {
+      ...blankEvent("2027-03-01"),
+      id: "official-test",
+      title: "公開参考",
+      origin: "official" as const,
+    };
+    const privateEvent = {
+      ...reference,
+      id: "private-test",
+      origin: "personal" as const,
+      replacesOfficialId: reference.id,
+    };
+    const result = mergeEvents([reference], [privateEvent]);
+    expect(result).toHaveLength(1);
+    expect(result[0].id).toBe("private-test");
+  });
+  it("skips explicitly excluded days and rejects malformed exceptions", () => {
+    const event = {
+      ...blankEvent("2027-03-01"),
+      id: "weekly",
+      title: "週次テスト",
+      repeat: "weekly" as const,
+      excludedDates: ["2027-03-08"],
+    };
+    expect(occursOn(event, "2027-03-08")).toBe(false);
+    expect(occursOn(event, "2027-03-15")).toBe(true);
+    expect(() =>
+      validateEvents([{ ...event, excludedDates: ["not-a-date"] }]),
+    ).toThrow();
+  });
+});

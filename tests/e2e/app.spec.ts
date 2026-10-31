@@ -135,3 +135,76 @@ test("source grouping, corrected concert date, and weekday count table", async (
   await page.getByLabel("予定の出典").selectOption("personal");
   await expect(page.locator(".dated-row")).toHaveCount(0);
 });
+test("string lesson shortcut requires a time and preserves its kind for filtering", async ({
+  page,
+}) => {
+  await nav(page, "個人予定");
+  await page
+    .getByRole("button", { name: "弦楽器レッスン", exact: true })
+    .click();
+  await expect(page.getByLabel("予定名", { exact: true })).toHaveValue(
+    "弦楽器レッスン",
+  );
+  await expect(page.getByLabel("開始時刻", { exact: true })).toHaveValue("");
+  await page.getByLabel("開始時刻", { exact: true }).fill("13:00");
+  await page.getByLabel("繰り返し", { exact: true }).selectOption("weekly");
+  await page.getByRole("button", { name: "保存する" }).click();
+  await page.getByLabel("予定の種類").selectOption("弦楽器レッスン");
+  await expect(page.locator(".dated-row")).toHaveCount(1);
+  await page.getByLabel("予定の種類").selectOption("伴奏合わせ");
+  await expect(page.locator(".dated-row")).toHaveCount(0);
+  await page.reload();
+  await nav(page, "個人予定");
+  await page.getByLabel("予定の種類").selectOption("弦楽器レッスン");
+  await page.locator(".dated-row .event-row").click();
+  await expect(page.locator(".modal")).toContainText("弦楽器レッスン");
+  await expect(page.locator(".modal")).toContainText("毎週");
+  await expect(page.locator(".modal")).toContainText("ユーザー提供の予定");
+});
+test("adding a JSON file keeps existing events and does not duplicate a second import", async ({
+  page,
+}) => {
+  await nav(page, "設定");
+  const file = {
+    name: "synthetic-test.json",
+    mimeType: "application/json",
+    buffer: Buffer.from(
+      JSON.stringify({
+        version: 1,
+        academicRevision: "2026-images-v2",
+        events: [
+          {
+            id: "synthetic-import",
+            title: "追加取込テスト",
+            date: "2027-03-01",
+            endDate: "2027-03-01",
+            allDay: true,
+            time: "",
+            endTime: "",
+            category: "personal",
+            kind: "練習",
+            location: "",
+            notes: "架空のテストデータ",
+            important: false,
+            repeat: "none",
+            repeatUntil: "",
+            verification: "personal",
+            origin: "personal",
+          },
+        ],
+      }),
+    ),
+  };
+  for (let i = 0; i < 2; i++) {
+    await page.locator("input[type=file]").setInputFiles(file);
+    await page.getByRole("button", { name: "既存の予定を残して追加" }).click();
+  }
+  await nav(page, "個人予定");
+  await page
+    .getByRole("textbox", { name: "予定を検索" })
+    .fill("追加取込テスト");
+  await expect(page.locator(".dated-row")).toHaveCount(1);
+  await nav(page, "予定一覧");
+  await page.getByLabel("予定の出典").selectOption("official");
+  expect(await page.locator(".dated-row").count()).toBeGreaterThan(100);
+});

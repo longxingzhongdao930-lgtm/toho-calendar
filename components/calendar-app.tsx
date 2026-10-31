@@ -36,6 +36,8 @@ import {
   eventsOn,
   occurrences,
   parseDate,
+  personalKinds,
+  mergeEvents,
   SOURCE,
   STORAGE_KEY,
   validateEvents,
@@ -911,6 +913,37 @@ export default function CalendarApp() {
             </div>
           ) : (
             <section className="card list-card">
+              {view === "personal" && (
+                <section
+                  className="personal-shortcuts"
+                  aria-label="レッスン・合わせを追加"
+                >
+                  <h2>レッスン・合わせを追加</h2>
+                  <p>
+                    種類を選び、日時を指定して保存してください。予定はこの端末だけに保存されます。
+                  </p>
+                  <div>
+                    {personalKinds.map((kind) => (
+                      <button
+                        key={kind}
+                        className="secondary-button"
+                        onClick={() =>
+                          setEditor({
+                            ...blankEvent(selected),
+                            title: kind,
+                            kind,
+                            time: "",
+                            endTime: "",
+                          })
+                        }
+                      >
+                        <Plus size={15} />
+                        {kind}
+                      </button>
+                    ))}
+                  </div>
+                </section>
+              )}
               {view === "class" && <TeachingPanel />}
               <div className="list-tools">
                 <select
@@ -946,14 +979,25 @@ export default function CalendarApp() {
                     ))}
                   </select>
                 </label>
-                {view === "orchestra" && (
+                {(view === "orchestra" || view === "personal") && (
                   <select
-                    aria-label="練習の種類"
+                    aria-label="予定の種類"
                     value={kind}
                     onChange={(e) => setKind(e.target.value)}
                   >
                     <option value="all">すべての種類</option>
-                    {["通常練習", "臨時練習", "分奏", "本番"].map((x) => (
+                    {(view === "personal"
+                      ? personalKinds
+                      : [
+                          "通常練習",
+                          "臨時練習",
+                          "分奏",
+                          "本番",
+                          "GP",
+                          "休講",
+                          "搬出",
+                        ]
+                    ).map((x) => (
                       <option key={x}>{x}</option>
                     ))}
                   </select>
@@ -1129,10 +1173,16 @@ export default function CalendarApp() {
               </div>
               {detail.verification === "unverified" ? (
                 <div className="verification">
-                  要確認：画像の細字・名称・適用範囲を判読しきれない項目です。
-                  <a href={SOURCE} target="_blank" rel="noreferrer">
-                    大学公式学年暦を確認 <ArrowUpRight size={13} />
-                  </a>
+                  要確認：画像の細字・時刻・実施日・適用範囲などに未確定の情報があります。
+                  {detail.origin === "official" ? (
+                    <a href={SOURCE} target="_blank" rel="noreferrer">
+                      大学公式学年暦を確認 <ArrowUpRight size={13} />
+                    </a>
+                  ) : (
+                    <p>
+                      提供された個人の資料と、担当者からの最新の案内をご確認ください。
+                    </p>
+                  )}
                 </div>
               ) : detail.verification === "official" ? (
                 <div className="verification official-verified">
@@ -1201,7 +1251,7 @@ export default function CalendarApp() {
               <h2>バックアップを復元</h2>
               <p>
                 {imported.length}
-                件の予定で、現在の全予定を置き換えます。必要なら先に現在のデータを書き出してください。
+                件を読み込みました。「追加」は既存の予定を保持します。同じIDは取り込み内容で更新され、同一内容の予定は重複させません。「置き換え」は現在の全予定を消すため、先に書き出してください。
               </p>
               <div className="modal-actions">
                 <button className="secondary-button" onClick={close}>
@@ -1209,6 +1259,27 @@ export default function CalendarApp() {
                 </button>
                 <button
                   className="primary-button"
+                  onClick={() => {
+                    try {
+                      setEvents(mergeEvents(events, imported));
+                      setStorageBlocked(false);
+                      close();
+                      setMessage(
+                        "予定を追加しました。同じ予定は重複登録していません。",
+                      );
+                    } catch (err) {
+                      setMessage(
+                        err instanceof Error
+                          ? err.message
+                          : "追加できませんでした。",
+                      );
+                    }
+                  }}
+                >
+                  既存の予定を残して追加
+                </button>
+                <button
+                  className="secondary-button"
                   onClick={() => {
                     setEvents(imported);
                     setStorageBlocked(false);
@@ -1249,6 +1320,8 @@ function EventForm({
             ...draft,
             title: draft.title.trim(),
             endDate: draft.repeat === "none" ? draft.endDate : draft.date,
+            excludedDates:
+              draft.repeat === "none" ? undefined : draft.excludedDates,
           };
           validateEvents([{ ...v, id: v.id || "new" }]);
           onSave(v);
@@ -1295,16 +1368,35 @@ function EventForm({
           />
           <datalist id="event-kinds">
             {(draft.category === "orchestra"
-              ? ["通常練習", "臨時練習", "分奏", "本番"]
+              ? ["通常練習", "臨時練習", "分奏", "本番", "GP", "休講", "搬出"]
               : draft.category === "class"
                 ? ["平常授業", "休講", "補講", "試験期間"]
-                : ["伴奏合わせ", "レッスン", "練習"]
+                : [...personalKinds, "レッスン", "練習"]
             ).map((x) => (
               <option key={x} value={x} />
             ))}
           </datalist>
         </label>
       </div>
+      {draft.category === "personal" && (
+        <fieldset className="personal-kind-options">
+          <legend>レッスン・合わせの種類を選択</legend>
+          <div>
+            {personalKinds.map((kind) => (
+              <button
+                key={kind}
+                type="button"
+                aria-pressed={draft.kind === kind}
+                onClick={() =>
+                  setDraft((d) => ({ ...d, kind, title: d.title || kind }))
+                }
+              >
+                {kind}
+              </button>
+            ))}
+          </div>
+        </fieldset>
+      )}
       <label className="checkbox-label">
         <input
           type="checkbox"
@@ -1391,6 +1483,24 @@ function EventForm({
           </label>
         )}
       </div>
+      {draft.repeat !== "none" && (
+        <label>
+          実施しない日（カンマ区切り）
+          <input
+            placeholder="YYYY-MM-DD, YYYY-MM-DD"
+            value={(draft.excludedDates || []).join(", ")}
+            onChange={(e) =>
+              put(
+                "excludedDates",
+                e.target.value
+                  .split(",")
+                  .map((v) => v.trim())
+                  .filter(Boolean),
+              )
+            }
+          />
+        </label>
+      )}
       {draft.repeat !== "none" && (
         <p className="form-help">
           編集はシリーズ全体に反映。繰り返しは1日単位です。

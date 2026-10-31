@@ -4,6 +4,14 @@ export const categories = {
   campus: { label: "大学行事", short: "大学", color: "#d59740" },
   personal: { label: "個人予定", short: "個人", color: "#43a68b" },
 } as const;
+export const personalKinds = [
+  "弦楽器レッスン",
+  "弦楽器合わせ",
+  "伴奏合わせ",
+  "室内楽合わせ",
+  "弦楽合奏",
+  "個人練習",
+] as const;
 export type Category = keyof typeof categories;
 export type CalendarEvent = {
   id: string;
@@ -23,6 +31,8 @@ export type CalendarEvent = {
   verification: "unverified" | "personal" | "official";
   origin?: "official" | "personal";
   sourcePage?: 1 | 2;
+  excludedDates?: string[];
+  replacesOfficialId?: string;
 };
 export const SOURCE =
   "https://www.toho-music.ac.jp/wp-content/uploads/2026/04/2026_college_calendar.pdf";
@@ -66,7 +76,7 @@ export function blankEvent(date: string): CalendarEvent {
   };
 }
 export function occursOn(event: CalendarEvent, day: string): boolean {
-  if (day < event.date) return false;
+  if (day < event.date || event.excludedDates?.includes(day)) return false;
   if (event.repeat === "none") return day <= event.endDate;
   if (event.repeatUntil && day > event.repeatUntil) return false;
   const start = parseDate(event.date),
@@ -151,6 +161,26 @@ export function validateEvents(input: unknown): CalendarEvent[] {
     if (!e.allDay && e.endTime && e.date === e.endDate && e.endTime <= e.time)
       fail();
     if (e.repeat !== "none" && e.endDate !== e.date) fail();
+    if (
+      e.excludedDates !== undefined &&
+      (!Array.isArray(e.excludedDates) ||
+        e.excludedDates.length > 366 ||
+        new Set(e.excludedDates).size !== e.excludedDates.length ||
+        !e.excludedDates.every(
+          (d: unknown) =>
+            validDate(d) &&
+            d >= e.date &&
+            (!e.repeatUntil || d <= e.repeatUntil),
+        ))
+    )
+      fail();
+    if (
+      e.replacesOfficialId !== undefined &&
+      (typeof e.replacesOfficialId !== "string" ||
+        !/^official-[A-Za-z0-9-]+$/.test(e.replacesOfficialId) ||
+        e.origin !== "personal")
+    )
+      fail();
     ids.add(e.id);
   }
   return input as CalendarEvent[];
@@ -161,4 +191,45 @@ export function decodeBackup(text: string): CalendarEvent[] {
   if (data?.version !== 1)
     throw new Error("対応していないバックアップ形式です。");
   return validateEvents(data.events);
+}
+
+/** Import locally without clearing unrelated events. Repeated imports update IDs, not duplicate entries. */
+export function mergeEvents(
+  existing: CalendarEvent[],
+  incoming: CalendarEvent[],
+): CalendarEvent[] {
+  validateEvents(existing);
+  validateEvents(incoming);
+  const identity = (e: CalendarEvent) =>
+    JSON.stringify([
+      e.title,
+      e.date,
+      e.endDate,
+      e.allDay,
+      e.time,
+      e.endTime,
+      e.category,
+      e.kind,
+      e.location,
+      e.repeat,
+      e.repeatUntil,
+      e.excludedDates || [],
+    ]);
+  const result = new Map(existing.map((e) => [e.id, e]));
+  for (const event of incoming) {
+    if (
+      event.replacesOfficialId &&
+      result.get(event.replacesOfficialId)?.origin === "official"
+    )
+      result.delete(event.replacesOfficialId);
+    if (result.has(event.id)) {
+      result.set(event.id, event);
+      continue;
+    }
+    if (
+      !Array.from(result.values()).some((e) => identity(e) === identity(event))
+    )
+      result.set(event.id, event);
+  }
+  return validateEvents(Array.from(result.values()));
 }

@@ -118,7 +118,12 @@ export function reconcileOfficialEvents(
       }
       return [e];
     });
-  return [...retained, ...officialEvents()];
+  return [
+    ...retained,
+    ...officialEvents().filter(
+      (e) => !retained.some((personal) => personal.replacesOfficialId === e.id),
+    ),
+  ];
 }
 export function readStoredEvents(text: string): CalendarEvent[] {
   const events = decodeBackup(text);

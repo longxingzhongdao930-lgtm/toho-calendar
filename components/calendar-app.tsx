@@ -48,6 +48,7 @@ import { readStoredEvents, seedEvents } from "@/lib/seed";
 import { ACADEMIC_REVISION, verificationLabel } from "@/lib/academic";
 import TeachingPanel, { TeachingDaySummary } from "./teaching-panel";
 import AppReadiness from "./app-readiness";
+import BrowserTransfer from "./browser-transfer";
 import { decodePrivateTransfer, TRANSFER_PREFIX } from "@/lib/private-transfer";
 const nav = [
   { id: "home", label: "ホーム", icon: House },
@@ -852,6 +853,14 @@ export default function CalendarApp() {
             <section className="card full-calendar">{calendar()}</section>
           ) : view === "settings" ? (
             <div className="settings-grid">
+              <BrowserTransfer
+                events={events}
+                onImport={(data) => {
+                  setImported(data);
+                  setLinkImport(true);
+                  setMessage("");
+                }}
+              />
               <section className="card settings-card">
                 <h2>表示テーマ</h2>
                 <p>気分や環境に合わせて選べます。</p>
@@ -1321,7 +1330,7 @@ export default function CalendarApp() {
                       setStorageBlocked(false);
                       close();
                       setMessage(
-                        "予定を追加しました。同じ予定は重複登録していません。",
+                        "予定を追加しました。Safariへ移る場合は、設定の「Safariへ引き継ぐ準備」を使ってください。同じ予定は重複登録していません。",
                       );
                     } catch (err) {
                       setMessage(

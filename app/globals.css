@@ -2380,3 +2380,55 @@ main {
   margin-bottom: 15px;
   color: var(--navy);
 }
+.browser-transfer {
+  grid-column: 1/-1;
+}
+.browser-transfer .transfer-actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+.browser-transfer .secondary-button {
+  margin: 0;
+}
+.transfer-copy-label,
+.transfer-receive label {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  font-size: 12px;
+  margin: 18px 0;
+}
+.browser-transfer textarea {
+  width: 100%;
+  min-width: 0;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--bg);
+  color: var(--text);
+  font-size: 16px;
+  padding: 12px;
+  overflow-wrap: anywhere;
+}
+.browser-transfer .transfer-feedback {
+  margin: 18px 0 0;
+  color: var(--navy);
+  background: var(--hover);
+  padding: 14px;
+  border-radius: 8px;
+}
+.browser-transfer .transfer-error {
+  color: #b53a48;
+}
+.transfer-receive {
+  margin-top: 20px;
+  border-top: 1px solid var(--line);
+  padding-top: 15px;
+}
+.transfer-receive summary {
+  cursor: pointer;
+  line-height: 1.9;
+  font-size: 12px;
+  color: var(--navy);
+}

@@ -289,3 +289,103 @@ test("malformed private links preserve existing schedules and show an error", as
     ),
   ).toBe(before);
 });
+test("private schedules survive a handoff to separate browser storage without deleting the source", async ({
+  page,
+  browser,
+}) => {
+  const { gzipSync } = await import("node:zlib");
+  const event = {
+    id: "handoff-synthetic",
+    title: "引き継ぎ検証の架空予定",
+    date: "2027-03-01",
+    endDate: "2027-03-01",
+    allDay: true,
+    time: "",
+    endTime: "",
+    category: "personal",
+    kind: "練習",
+    location: "",
+    notes: "架空のテストデータ",
+    important: false,
+    repeat: "none",
+    repeatUntil: "",
+    verification: "personal",
+    origin: "personal",
+  };
+  const payload = gzipSync(
+    JSON.stringify({
+      version: 1,
+      academicRevision: "2026-images-v2",
+      events: [event],
+    }),
+  ).toString("base64url");
+  await page.goto("/?v=handoff-test#toho-import=" + payload);
+  await page.getByRole("button", { name: "既存の予定を残して追加" }).click();
+  await page.getByRole("button", { name: "Safariへ引き継ぐ準備" }).click();
+  const url = await page
+    .getByRole("textbox", { name: "引き継ぎ用リンク（コピー用）" })
+    .inputValue();
+  expect(page.url()).toBe(url);
+  expect(url).toContain("#toho-import=");
+  await page.evaluate(() =>
+    Object.defineProperty(navigator, "clipboard", {
+      value: undefined,
+      configurable: true,
+    }),
+  );
+  await page.getByRole("button", { name: "引き継ぎリンクをコピー" }).click();
+  await expect(
+    page.locator(".browser-transfer .transfer-feedback"),
+  ).toContainText("自動コピーが使えません");
+  for (const mode of ["address", "paste"]) {
+    const destination = await browser.newContext({
+      viewport: page.viewportSize()!,
+      timezoneId: "Asia/Tokyo",
+    });
+    const target = await destination.newPage();
+    await target.goto("http://127.0.0.1:3000/");
+    await expect(
+      target.getByRole("button", { name: "予定を追加", exact: true }).first(),
+    ).toBeEnabled();
+    expect(
+      await target.evaluate(() =>
+        JSON.parse(localStorage.getItem("toho-calendar-v1")!).events.some(
+          (e: { id: string }) => e.id === "handoff-synthetic",
+        ),
+      ),
+    ).toBe(false);
+    if (mode === "address") await target.goto(url);
+    else {
+      await nav(target, "設定");
+      await target
+        .getByText("Safari・ホーム画面側でリンクを貼り付けて取り込む", {
+          exact: true,
+        })
+        .click();
+      await target
+        .getByRole("textbox", { name: "引き継ぎリンクを貼り付け" })
+        .fill(url);
+      await target.getByRole("button", { name: "リンクの予定を確認" }).click();
+    }
+    await target
+      .getByRole("button", { name: "既存の予定を残して追加" })
+      .click();
+    expect(
+      await target.evaluate(
+        () =>
+          JSON.parse(localStorage.getItem("toho-calendar-v1")!).events.filter(
+            (e: { id: string }) => e.id === "handoff-synthetic",
+          ).length,
+      ),
+    ).toBe(1);
+    await destination.close();
+  }
+  expect(
+    await page.evaluate(
+      () =>
+        JSON.parse(localStorage.getItem("toho-calendar-v1")!).events.filter(
+          (e: { id: string }) => e.id === "handoff-synthetic",
+        ).length,
+    ),
+  ).toBe(1);
+});

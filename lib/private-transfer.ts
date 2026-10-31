@@ -50,3 +50,54 @@ export async function decodePrivateTransfer(
     reader?.releaseLock();
   }
 }
+
+/** Build a private browser-to-browser handoff without any upload. */
+export async function encodePrivateTransfer(
+  events: CalendarEvent[],
+): Promise<string> {
+  const { validateEvents } = await import("./calendar");
+  const { ACADEMIC_REVISION } = await import("./academic");
+  validateEvents(events);
+  if (typeof CompressionStream === "undefined")
+    throw new Error("最新版のSafariで開いてください。");
+  const bytes = new TextEncoder().encode(
+    JSON.stringify({ version: 1, academicRevision: ACADEMIC_REVISION, events }),
+  );
+  if (bytes.byteLength > 5_000_000)
+    throw new Error(
+      "データが大きいため、JSONバックアップで引き継いでください。",
+    );
+  const compressed = new Uint8Array(
+    await new Response(
+      new Blob([bytes]).stream().pipeThrough(new CompressionStream("gzip")),
+    ).arrayBuffer(),
+  );
+  let binary = "";
+  for (const byte of compressed) binary += String.fromCharCode(byte);
+  const encoded = btoa(binary)
+    .replace(/\+/g, "-")
+    .replace(/\//g, "_")
+    .replace(/=+$/, "");
+  if (encoded.length > 50_000)
+    throw new Error(
+      "リンクが長すぎるため、JSONバックアップで引き継いでください。",
+    );
+  return encoded;
+}
+export function extractPrivateTransfer(link: string): string {
+  const trimmed = link.trim();
+  if (trimmed.startsWith(TRANSFER_PREFIX))
+    return trimmed.slice(TRANSFER_PREFIX.length);
+  let url: URL;
+  try {
+    url = new URL(trimmed);
+  } catch {
+    throw new Error("引き継ぎリンク全体を貼り付けてください。");
+  }
+  if (
+    !["https:", "http:"].includes(url.protocol) ||
+    !url.hash.startsWith(TRANSFER_PREFIX)
+  )
+    throw new Error("TOHO Calendarの引き継ぎリンクを貼り付けてください。");
+  return url.hash.slice(TRANSFER_PREFIX.length);
+}

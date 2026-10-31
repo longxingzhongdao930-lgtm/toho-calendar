@@ -1,6 +1,7 @@
 import { defineConfig, devices } from "@playwright/test";
 export default defineConfig({
   testDir: "./tests/e2e",
+  outputDir: "test-results/e2e",
   fullyParallel: true,
   use: {
     baseURL: "http://127.0.0.1:3000",
@@ -19,7 +20,7 @@ export default defineConfig({
     { name: "desktop", use: { ...devices["Desktop Chrome"] } },
     {
       name: "mobile",
-      use: { ...devices["iPhone 13"], defaultBrowserType: "chromium" },
+      use: { ...devices["iPhone 15 Pro Max"], defaultBrowserType: "chromium" },
     },
   ],
 });

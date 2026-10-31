@@ -20,7 +20,9 @@ export type CalendarEvent = {
   important: boolean;
   repeat: "none" | "weekly" | "monthly";
   repeatUntil: string;
-  verification: "unverified" | "personal";
+  verification: "unverified" | "personal" | "official";
+  origin?: "official" | "personal";
+  sourcePage?: 1 | 2;
 };
 export const SOURCE =
   "https://www.toho-music.ac.jp/wp-content/uploads/2026/04/2026_college_calendar.pdf";
@@ -60,6 +62,7 @@ export function blankEvent(date: string): CalendarEvent {
     repeat: "none",
     repeatUntil: "",
     verification: "personal",
+    origin: "personal",
   };
 }
 export function occursOn(event: CalendarEvent, day: string): boolean {
@@ -121,7 +124,11 @@ export function validateEvents(input: unknown): CalendarEvent[] {
       typeof e.important !== "boolean"
     )
       fail();
-    if (!["unverified", "personal"].includes(e.verification)) fail();
+    if (!["unverified", "personal", "official"].includes(e.verification))
+      fail();
+    if (e.origin !== undefined && !["official", "personal"].includes(e.origin))
+      fail();
+    if (e.sourcePage !== undefined && ![1, 2].includes(e.sourcePage)) fail();
     if (
       !["kind", "location", "notes", "time", "endTime", "repeatUntil"].every(
         (k) => typeof e[k] === "string",

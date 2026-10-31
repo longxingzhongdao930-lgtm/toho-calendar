@@ -23,7 +23,7 @@ npx playwright install --with-deps chromium
 npm run test:e2e
 ```
 
-既存の Chromium を使う場合は `PLAYWRIGHT_CHROMIUM_EXECUTABLE=/usr/bin/chromium npm run test:e2e`。E2EはPCとiPhone 13相当の画面サイズで実行します（モバイルはChromiumによるエミュレーションで、実機Safariではありません）。本番成果物は `out/` です。静的exportのため `next start` ではなく `python3 -m http.server 3000 --directory out` 等で配信してください。
+既存の Chromium を使う場合は `PLAYWRIGHT_CHROMIUM_EXECUTABLE=/usr/bin/chromium npm run test:e2e`。E2EはPCとiPhone 15 Pro Max相当の画面サイズで実行します（モバイルはChromiumによるエミュレーションで、実機Safariではありません）。本番成果物は `out/` です。静的exportのため `next start` ではなく `python3 -m http.server 3000 --directory out` 等で配信してください。
 
 ## 機能
 
@@ -40,9 +40,11 @@ PCでは左ナビ、スマホでは下部ナビを使います。スマホのオ
 
 ## 初期データと出典
 
-[2026年度公式学年暦PDF](https://www.toho-music.ac.jp/wp-content/uploads/2026/04/2026_college_calendar.pdf) を参照先とし、依頼時に提供された2026年11月〜2027年2月の大学行事18件、伴奏合わせ2件を `lib/seed.ts` に登録しています。1〜2月は2027年として扱います。
+ユーザー提供の**2026年度公式学年暦のスクリーンショット4枚**を一次資料として、2026年4月〜2027年3月の日程を `lib/academic.ts` に登録しました。日付・名称が読めた項目のみ「公式資料確認済み」、読めない細字・条件は「要確認」です。曜日別回数表は授業・試験画面から閲覧でき、数字を判読できた42日分だけ数値を表示します。未読の回数は推定していません。
 
-**制作環境の通信制限（HTTPSプロキシの403）によりPDF本文を取得できず、大学行事は全件「要確認」です。** 予定詳細のリンクから必ず公式情報を確認してください。確定していない会場・授業時刻・練習日程は補っていません。伴奏合わせはユーザー提供の確定予定で、終了時刻・会場は未設定です。個人を特定する氏名、学内パスワード、非公開資料は含みません。
+[抽出範囲・訂正・移行仕様](docs/academic-data.md) と [参照先の公式PDF](https://www.toho-music.ac.jp/wp-content/uploads/2026/04/2026_college_calendar.pdf)。PDF本文の直接取得は通信制限で未実施です。スクリーンショット自体は一切公開せず、抽出データのみ使用します。個人予定の初期配布も外し、既存端末にある個人予定は保持します。
+
+主な訂正：**ウインド定期演奏会は12/13→12/12**、後期の**学科目まとめ期間は1/15・16、1/18〜21**。12/8〜11・12/23の「学科目補講可能」を全授業休講とは断定しない表示に変更しました。
 
 初回のみデモデータを登録します。空のバックアップを復元した場合も、再読込で初期データを再登録しません。
 
@@ -72,4 +74,23 @@ PCでは左ナビ、スマホでは下部ナビを使います。スマホのオ
 
 ## 構成
 
-`app/` は画面とスタイル、`components/calendar-app.tsx` はクライアントUI、`lib/calendar.ts` は日付・繰り返し・検証、`lib/seed.ts` は初期データ、`tests/` はユニットとブラウザテストです。GitHub Actionsで型チェック・ユニット・ビルド・E2Eを実行します。
+`app/` は画面とスタイル、`components/calendar-app.tsx` はクライアントUI、`lib/calendar.ts` は日付・繰り返し・検証、`lib/academic.ts` は年度日程と回数の転記、`lib/seed.ts` は初期化・既存データ移行、`tests/` はユニットとブラウザテストです。GitHub Actionsで型チェック・ユニット・ビルド・E2Eを実行します。
+
+## iPhone・PWA・オフライン
+
+- アプリ名は **TOHO Calendar**。ホームに今日・次の予定・月間カレンダーを表示し、430×932 CSSピクセル（iPhone 15 Pro Max相当）・セーフエリア・文字入力16pxに対応します。
+- アプリ全体に「非公式の学生向けカレンダー」を表示。Apple touch icon、192/512pxアイコン、standalone表示、iPhone 15 Pro Max縦向けの起動画面を設定済みです。起動画面・インストールの最終表示はiOSバージョンに依存します。
+- HTTPSの公開URLを**Safari**で開き、共有 → **ホーム画面に追加** → **追加**。初回はオンラインで「オフライン閲覧の準備完了」が表示されるまで待ってください。
+- 起動シェルと同一オリジンの静的アセットだけをService Workerで保存。予定データはlocalStorageのみで、外部への送信、アクセス解析、広告、API呼び出しはありません。オフラインでも再起動・保存済み予定の閲覧と編集・JSON書き出しができます。公式PDFへのリンクはオンライン時に利用してください。
+- Service Workerは**本番ビルドだけ**で登録します。初回アクセス前のオフライン利用や、iOSがキャッシュ・端末保存領域を削除した場合の保持は保証できません。JSONを定期的に書き出してください。Safariとホーム画面アプリで保存領域が分かれる場合は、JSONで移行してください。公開先の変更でも保存領域は別になります。
+- 本番ビルドの `postbuild` が `out/sw.js` と静的アセット一覧を生成します。`out/` 全体を配信してください。Service Workerを含めてHTML・CSS・JSを同じ公開先に配置する必要があります。
+- オフラインテスト：`npm run build` のあと `npm run test:pwa`。静的成果物を配信し、初回ロード→オフライン→再読込→個人予定の保存→再起動→JSON書き出しを検証します。ブラウザはChromiumのiPhone相当エミュレーションです。実機Safariでの最終確認は別途必要です。
+
+### Vercelへの接続（認証する本人の操作が必要）
+
+1. [Vercelの新規プロジェクト画面](https://vercel.com/new) でGitHubアカウントを接続します。
+2. `longxingzhongdao930-lgtm/toho-calendar` をImportし、Production Branchを `main` にします。
+3. Buildは `npm run build`、Outputは `out`（`vercel.json` に指定済み）。`NEXT_PUBLIC_BASE_PATH` は設定しません。APIキー・データベースは不要です。
+4. Deploy後、Vercelが発行する実際の `https://…vercel.app` をSafariで開き、上記の手順で追加します。以後mainへのpushで自動更新されます。
+
+この制作環境ではVercelのアカウント認証がなく、`api.vercel.com` への通信も403で拒否されます。そのためVercel接続・URL発行・公開先の実機Safari検証は未実施です。未発行のURLを推測して公開済みと案内しません。

@@ -8,7 +8,9 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:e2e": "playwright test",
-    "format": "prettier --write ."
+    "format": "prettier --write .",
+    "postbuild": "node scripts/build-offline.mjs",
+    "test:pwa": "playwright test --config=playwright.pwa.config.ts"
   },
   "dependencies": {
     "lucide-react": "^0.468.0",

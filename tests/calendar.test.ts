@@ -9,13 +9,17 @@ import {
 } from "../lib/calendar";
 import { seedEvents } from "../lib/seed";
 describe("calendar data", () => {
-  it("validates all 20 seed events and keeps academic entries unverified", () => {
+  it("validates the annual official dataset without private seed events", () => {
     const events = seedEvents();
-    expect(validateEvents(events)).toHaveLength(20);
-    expect(events.filter((e) => e.verification === "unverified")).toHaveLength(
-      18,
-    );
-    expect(events.find((e) => e.id === "personal-0")?.time).toBe("18:40");
+    expect(validateEvents(events)).toEqual(events);
+    expect(events.length).toBeGreaterThan(100);
+    expect(events.every((e) => e.origin === "official")).toBe(true);
+    expect(new Set(events.map((e) => e.id)).size).toBe(events.length);
+    expect(events.some((e) => e.verification === "unverified")).toBe(true);
+    expect(events.some((e) => e.date === "2026-04-05")).toBe(true);
+    expect(
+      events.some((e) => e.date === "2027-03-31" || e.endDate === "2027-03-31"),
+    ).toBe(true);
   });
   it("includes every day of cross-year campus closure", () => {
     const e = seedEvents().find((e) => e.date === "2026-12-29")!;

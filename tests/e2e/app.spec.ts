@@ -1,6 +1,6 @@
 import { expect, test } from "@playwright/test";
 test.beforeEach(async ({ page }) => {
-  await page.clock.setFixedTime(new Date("2026-11-05T08:00:00+09:00"));
+  await page.clock.setFixedTime(new Date("2026-11-23T08:00:00+09:00"));
   await page.goto("/");
   await expect(
     page.getByRole("button", { name: "予定を追加", exact: true }).first(),
@@ -16,7 +16,7 @@ async function nav(page: import("@playwright/test").Page, label: string) {
     .click();
 }
 test("seed, CRUD, recurrence, persistence and search", async ({ page }) => {
-  await expect(page.locator(".hero-content")).toContainText("伴奏合わせ");
+  await expect(page.locator(".hero-content")).toBeVisible();
   await page
     .getByRole("button", { name: "予定を追加", exact: true })
     .first()
@@ -51,21 +51,21 @@ test("calendar views, theme, backup export and invalid import", async ({
   await page.getByRole("button", { name: "週", exact: true }).click();
   await expect(page.locator(".date-cell")).toHaveCount(7);
   await page.getByRole("button", { name: "日", exact: true }).click();
-  await expect(page.locator(".day-agenda")).toContainText("伴奏合わせ");
+  await expect(page.locator(".day-agenda")).toContainText("勤労感謝の日");
   await nav(page, "設定");
   await page.getByRole("button", { name: "ダーク", exact: false }).click();
   await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
   const download = page.waitForEvent("download");
   await page.getByRole("button", { name: "JSONを書き出す" }).click();
   expect((await download).suggestedFilename()).toContain("toho-calendar");
-  await page
-    .locator("input[type=file]")
-    .setInputFiles({
-      name: "broken.json",
-      mimeType: "application/json",
-      buffer: Buffer.from('{"version":2}'),
-    });
-  await expect(page.getByRole("status")).toContainText("対応していない");
+  await page.locator("input[type=file]").setInputFiles({
+    name: "broken.json",
+    mimeType: "application/json",
+    buffer: Buffer.from('{"version":2}'),
+  });
+  await expect(page.locator(".notice[role=status]")).toContainText(
+    "対応していない",
+  );
   expect(
     await page.evaluate(
       () => document.documentElement.scrollWidth <= window.innerWidth,
@@ -76,13 +76,11 @@ test("empty backup restoration and broken storage protection", async ({
   page,
 }) => {
   await nav(page, "設定");
-  await page
-    .locator("input[type=file]")
-    .setInputFiles({
-      name: "empty.json",
-      mimeType: "application/json",
-      buffer: Buffer.from('{"version":1,"events":[]}'),
-    });
+  await page.locator("input[type=file]").setInputFiles({
+    name: "empty.json",
+    mimeType: "application/json",
+    buffer: Buffer.from('{"version":1,"events":[]}'),
+  });
   await page.getByRole("button", { name: "置き換えて復元" }).click();
   await page.reload();
   await nav(page, "個人予定");
@@ -91,8 +89,49 @@ test("empty backup restoration and broken storage protection", async ({
   ).toBeVisible();
   await page.evaluate(() => localStorage.setItem("toho-calendar-v1", "broken"));
   await page.reload();
-  await expect(page.getByRole("status")).toContainText("元データ保護");
+  await expect(page.locator(".notice[role=status]")).toContainText(
+    "元データ保護",
+  );
   expect(
     await page.evaluate(() => localStorage.getItem("toho-calendar-v1")),
   ).toBe("broken");
+});
+test("source grouping, corrected concert date, and weekday count table", async ({
+  page,
+}) => {
+  await nav(page, "カレンダー");
+  await page.getByLabel("表示する年月").fill("2026-12");
+  await page.getByRole("button", { name: /12月12日.*の予定/ }).click();
+  await expect(page.locator(".selected-agenda")).toContainText(
+    "ウインド定期演奏会",
+  );
+  await expect(page.locator(".selected-agenda .event-row")).toHaveCount(2);
+  await page
+    .locator(".selected-agenda .event-row")
+    .filter({ hasText: "ウインド定期演奏会" })
+    .click();
+  await expect(page.locator(".modal")).toContainText("公式資料確認済み");
+  await page.getByRole("button", { name: "閉じる", exact: true }).click();
+  const desktop = await page
+    .locator(".sidebar")
+    .evaluate((e) => e.getBoundingClientRect().x >= 0);
+  if (!desktop)
+    await page.getByRole("button", { name: "メニューを開く" }).click();
+  await page
+    .locator(".sidebar")
+    .getByRole("button", { name: "授業・試験", exact: true })
+    .click();
+  await page.getByLabel("回数表の学期").selectOption("前期");
+  await page
+    .locator(".weekday-counts summary")
+    .filter({ hasText: "月曜日" })
+    .click();
+  await expect(
+    page.locator(".weekday-counts li").filter({ hasText: "2026-07-13" }),
+  ).toContainText("第15回");
+  await expect(
+    page.locator(".weekday-counts li").filter({ hasText: "2026-04-06" }),
+  ).toContainText("要確認");
+  await page.getByLabel("予定の出典").selectOption("personal");
+  await expect(page.locator(".dated-row")).toHaveCount(0);
 });

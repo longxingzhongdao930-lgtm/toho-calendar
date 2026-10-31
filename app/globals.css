@@ -1990,3 +1990,336 @@ main {
     visibility: visible;
   }
 }
+.app-readiness {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px 16px;
+  margin: -8px 0 20px;
+  font-size: 11px;
+  color: var(--muted);
+}
+.unofficial-label {
+  color: var(--navy);
+  font-weight: 600;
+}
+.app-readiness details {
+  width: 100%;
+  font-size: 11px;
+  line-height: 1.9;
+}
+.app-readiness summary {
+  cursor: pointer;
+  color: var(--navy);
+  padding: 8px 0;
+}
+.app-readiness p {
+  max-width: 650px;
+  margin: 6px 0;
+}
+.launch-calendar {
+  padding: 22px;
+  margin-top: 22px;
+}
+.launch-calendar > .section-heading {
+  margin-bottom: 20px;
+}
+.source-label {
+  display: inline-block;
+  font-size: 10px;
+  margin-left: 8px;
+}
+.source-label.official {
+  color: #34715d;
+}
+.source-label.unverified,
+.pending-text {
+  color: #946725;
+}
+.official-verified {
+  background: #eaf5ef;
+  color: #34715d;
+}
+.date-group {
+  padding-top: 22px;
+}
+.date-group > h3 {
+  font-size: 12px;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid var(--line);
+}
+.date-group > h3 > span {
+  font-size: 10px;
+  color: var(--muted);
+}
+.teaching-panel {
+  border-bottom: 1px solid var(--line);
+  padding-bottom: 22px;
+  margin-bottom: 25px;
+}
+.teaching-panel > p {
+  font-size: 11px;
+  color: var(--muted);
+  line-height: 1.9;
+  margin: 12px 0;
+}
+.weekday-counts {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+.weekday-counts details {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  min-width: 0;
+}
+.weekday-counts summary {
+  padding: 12px;
+  font-size: 12px;
+  cursor: pointer;
+}
+.weekday-counts summary span {
+  font-size: 10px;
+  color: var(--muted);
+  margin-left: 8px;
+}
+.weekday-counts ul {
+  list-style: none;
+  padding: 0 12px 8px;
+  margin: 0;
+  max-height: 240px;
+  overflow: auto;
+}
+.weekday-counts li {
+  display: flex;
+  justify-content: space-between;
+  gap: 6px;
+  font-size: 10px;
+  padding: 9px 0;
+  border-top: 1px solid var(--line);
+}
+.teaching-summary {
+  background: var(--hover);
+  border-radius: 8px;
+  padding: 13px;
+  margin: 14px 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 11px;
+}
+.teaching-summary strong {
+  font-size: 11px;
+}
+.teaching-summary small {
+  font-size: 10px;
+  color: var(--muted);
+}
+@media (max-width: 640px) {
+  .topbar {
+    padding-top: env(safe-area-inset-top);
+    height: calc(60px + env(safe-area-inset-top));
+  }
+  .today-card {
+    display: flex;
+    margin-top: 0;
+  }
+  .home-top {
+    gap: 15px;
+  }
+  .today-card .event-row {
+    padding: 12px 0;
+  }
+  .today-empty {
+    margin: 8px 0;
+  }
+  .today-date {
+    margin-top: 10px;
+  }
+  .today-date > strong {
+    font-size: 32px;
+  }
+  .today-card .today-link {
+    margin-top: 12px;
+  }
+  .launch-calendar {
+    padding: 16px 10px;
+    margin-top: 18px;
+  }
+  .source-label {
+    display: block;
+    margin: 4px 0 0;
+    font-size: 10px;
+  }
+  .weekday-counts {
+    grid-template-columns: 1fr 1fr;
+  }
+  .teaching-panel .section-heading {
+    align-items: flex-start;
+  }
+  .teaching-panel h2 {
+    font-size: 12px;
+  }
+  .teaching-panel select {
+    font-size: 16px;
+  }
+  .weekday-counts summary {
+    font-size: 12px;
+    padding: 12px 9px;
+  }
+  .weekday-counts summary span {
+    display: block;
+    margin: 7px 0 0;
+  }
+  .weekday-counts ul {
+    padding: 0 8px 8px;
+  }
+  .weekday-counts li {
+    flex-direction: column;
+    gap: 4px;
+    font-size: 11px;
+  }
+  .app-readiness {
+    font-size: 11px;
+    gap: 8px;
+  }
+  .app-readiness details {
+    font-size: 12px;
+  }
+  .bottom-nav {
+    padding-left: max(7px, env(safe-area-inset-left));
+    padding-right: max(7px, env(safe-area-inset-right));
+  }
+  main {
+    padding-left: max(18px, env(safe-area-inset-left));
+    padding-right: max(18px, env(safe-area-inset-right));
+    padding-bottom: calc(100px + env(safe-area-inset-bottom));
+  }
+  .day-number {
+    min-height: 36px;
+    width: 36px;
+  }
+  .calendar-event {
+    min-height: 24px;
+  }
+  .event-copy strong {
+    font-size: 13px;
+  }
+  .event-copy > span {
+    font-size: 11px;
+  }
+  .date-cell {
+    min-height: 105px;
+  }
+  .calendar-event {
+    font-size: 9px;
+  }
+  .page-heading p {
+    font-size: 12px;
+  }
+  .topbar-right .icon-button {
+    min-width: 44px;
+    min-height: 44px;
+  }
+  .bottom-nav button {
+    min-height: 48px;
+    font-size: 10px;
+  }
+  .modal-actions .primary-button,
+  .modal-actions .secondary-button {
+    min-height: 44px;
+  }
+}
+@media (display-mode: standalone) {
+  body {
+    overscroll-behavior-y: none;
+  }
+  .bottom-nav {
+    padding-bottom: max(12px, env(safe-area-inset-bottom));
+  }
+}
+.month-picker {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 11px;
+  color: var(--muted);
+  margin-bottom: 18px;
+}
+.month-picker input {
+  padding: 7px 10px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  color: var(--text);
+  min-height: 40px;
+}
+@media (max-width: 640px) {
+  .hero-card {
+    min-height: 220px;
+  }
+  .hero-content {
+    margin-top: 18px;
+  }
+  .hero-text {
+    padding: 20px;
+  }
+  .hero-link {
+    margin-top: 18px;
+  }
+  .today-date {
+    display: none;
+  }
+  .today-card {
+    padding: 16px;
+  }
+  .today-card .section-heading {
+    margin-bottom: 5px;
+  }
+  .today-empty .sun-illustration {
+    display: none;
+  }
+  .today-empty {
+    margin: 10px 0;
+  }
+  .today-card .today-link {
+    margin-top: 8px;
+  }
+  .today-card .event-row {
+    padding: 9px 0;
+  }
+  .month-picker input {
+    font-size: 16px;
+  }
+  .app-readiness {
+    margin-bottom: 16px;
+  }
+}
+.segmented[hidden] {
+  display: none;
+}
+@media (max-width: 640px) {
+  .month-control .icon-button {
+    min-width: 44px;
+    min-height: 44px;
+  }
+  .segmented button {
+    min-height: 40px;
+    min-width: 40px;
+  }
+  .day-number {
+    font-size: 12px;
+  }
+  .list-tools select {
+    font-size: 16px;
+    max-width: 100%;
+  }
+  .icon-button {
+    min-width: 40px;
+    min-height: 40px;
+  }
+}

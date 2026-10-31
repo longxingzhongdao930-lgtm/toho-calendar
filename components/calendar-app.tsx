@@ -33,7 +33,6 @@ import {
   blankEvent,
   categories,
   dateKey,
-  decodeBackup,
   eventsOn,
   occurrences,
   parseDate,
@@ -43,7 +42,10 @@ import {
   type CalendarEvent,
   type Category,
 } from "@/lib/calendar";
-import { seedEvents } from "@/lib/seed";
+import { readStoredEvents, seedEvents } from "@/lib/seed";
+import { ACADEMIC_REVISION, verificationLabel } from "@/lib/academic";
+import TeachingPanel, { TeachingDaySummary } from "./teaching-panel";
+import AppReadiness from "./app-readiness";
 const nav = [
   { id: "home", label: "ホーム", icon: House },
   { id: "calendar", label: "カレンダー", icon: CalendarDays },
@@ -76,6 +78,7 @@ export default function CalendarApp() {
     [query, setQuery] = useState(""),
     [filter, setFilter] = useState("all"),
     [kind, setKind] = useState("all"),
+    [sourceFilter, setSourceFilter] = useState("all"),
     [message, setMessage] = useState(""),
     [editor, setEditor] = useState<CalendarEvent | null>(null),
     [detail, setDetail] = useState<CalendarEvent | null>(null),
@@ -91,7 +94,7 @@ export default function CalendarApp() {
     setSelected(now);
     try {
       const saved = localStorage.getItem(STORAGE_KEY);
-      setEvents(saved ? decodeBackup(saved) : seedEvents());
+      setEvents(saved ? readStoredEvents(saved) : seedEvents());
       setDark(localStorage.getItem("toho-theme") === "dark");
     } catch {
       setStorageBlocked(true);
@@ -104,7 +107,14 @@ export default function CalendarApp() {
   useEffect(() => {
     if (!ready || storageBlocked) return;
     try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify({ version: 1, events }));
+      localStorage.setItem(
+        STORAGE_KEY,
+        JSON.stringify({
+          version: 1,
+          academicRevision: ACADEMIC_REVISION,
+          events,
+        }),
+      );
     } catch {
       setStorageBlocked(true);
       setMessage(
@@ -144,6 +154,7 @@ export default function CalendarApp() {
     setQuery("");
     setFilter("all");
     setKind("all");
+    setSourceFilter("all");
   };
   const openNew = () => {
     setDetail(null);
@@ -167,6 +178,8 @@ export default function CalendarApp() {
   const week = occurrences(events, monday, addDays(monday, 6));
   const title = nav.find((n) => n.id === view)?.label || "ホーム";
   const matches = (e: CalendarEvent) =>
+    (sourceFilter === "all" ||
+      (e.origin === "official" ? "official" : "personal") === sourceFilter) &&
     (filter === "all" || e.category === filter) &&
     (kind === "all" || e.kind === kind) &&
     `${e.title} ${e.location} ${e.notes}`
@@ -175,8 +188,9 @@ export default function CalendarApp() {
   const shown = events
     .filter(
       (e) =>
-        (!["orchestra", "class", "personal"].includes(view) ||
-          e.category === view) &&
+        (view === "personal"
+          ? e.origin !== "official"
+          : !["orchestra", "class"].includes(view) || e.category === view) &&
         matches(e),
     )
     .sort(
@@ -209,6 +223,10 @@ export default function CalendarApp() {
             {day ? `${jpDate(day)} · ` : ""}
             {timeLabel(e)}
             {e.location ? ` · ${e.location}` : ""}
+            <span className={`source-label ${e.verification}`}>
+              {e.origin === "official" ? "大学公式 · " : "個人 · "}
+              {verificationLabel(e)}
+            </span>
           </span>
         </span>
         <span className={`tag ${e.category}`}>
@@ -232,29 +250,30 @@ export default function CalendarApp() {
   }
   function shift(direction: number) {
     const d = parseDate(selected);
-    if (mode === "month") {
+    if (view === "home" || mode === "month") {
       d.setDate(1);
       d.setMonth(d.getMonth() + direction);
     } else d.setDate(d.getDate() + direction * (mode === "week" ? 7 : 1));
     setSelected(dateKey(d));
   }
   function calendar() {
+    const activeMode = view === "home" ? "month" : mode;
     const d = parseDate(selected);
     const monthStart = dateKey(new Date(d.getFullYear(), d.getMonth(), 1));
     const start =
-      mode === "month"
+      activeMode === "month"
         ? addDays(monthStart, -parseDate(monthStart).getDay())
-        : mode === "week"
+        : activeMode === "week"
           ? addDays(selected, -d.getDay())
           : selected;
-    const count = mode === "month" ? 42 : mode === "week" ? 7 : 1;
+    const count = activeMode === "month" ? 42 : activeMode === "week" ? 7 : 1;
     return (
       <>
         <div className="calendar-toolbar">
           <div className="month-control">
             <h2>
               {d.getFullYear()}年 <b>{d.getMonth() + 1}月</b>
-              {mode === "day" ? ` ${d.getDate()}日` : ""}
+              {activeMode === "day" ? ` ${d.getDate()}日` : ""}
             </h2>
             <button
               className="icon-button"
@@ -274,7 +293,7 @@ export default function CalendarApp() {
               今日
             </button>
           </div>
-          <div className="segmented">
+          <div className="segmented" hidden={view === "home"}>
             {[
               ["month", "月"],
               ["week", "週"],
@@ -282,8 +301,8 @@ export default function CalendarApp() {
             ].map(([id, label]) => (
               <button
                 key={id}
-                aria-pressed={mode === id}
-                className={mode === id ? "active" : ""}
+                aria-pressed={activeMode === id}
+                className={activeMode === id ? "active" : ""}
                 onClick={() => setMode(id)}
               >
                 {label}
@@ -291,6 +310,18 @@ export default function CalendarApp() {
             ))}
           </div>
         </div>
+        <label className="month-picker">
+          年月を選択
+          <input
+            type="month"
+            aria-label="表示する年月"
+            value={selected.slice(0, 7)}
+            onChange={(e) => {
+              if (/^\d{4}-\d{2}$/.test(e.target.value))
+                setSelected(`${e.target.value}-01`);
+            }}
+          />
+        </label>
         <div className="calendar-legend">
           {Object.entries(categories).map(([id, c]) => (
             <span key={id}>
@@ -299,16 +330,17 @@ export default function CalendarApp() {
             </span>
           ))}
         </div>
-        {mode === "day" ? (
+        {activeMode === "day" ? (
           <div className="day-agenda">
             <h3>{jpDate(selected)}</h3>
+            <TeachingDaySummary date={selected} />
             {eventsOn(events, selected)
               .filter(matches)
               .map((e) => row(e))}
             {!eventsOn(events, selected).filter(matches).length && empty()}
           </div>
         ) : (
-          <div className={`calendar-grid ${mode}`}>
+          <div className={`calendar-grid ${activeMode}`}>
             <div className="weekdays">
               {["日", "月", "火", "水", "木", "金", "土"].map((s, i) => (
                 <span
@@ -367,8 +399,9 @@ export default function CalendarApp() {
             </div>
           </div>
         )}
-        {mode !== "day" && (
+        {activeMode !== "day" && (
           <div className="selected-agenda">
+            <TeachingDaySummary date={selected} />
             <div className="section-heading">
               <h3>{jpDate(selected)}の予定</h3>
               <button className="text-button" onClick={openNew}>
@@ -435,7 +468,8 @@ export default function CalendarApp() {
             </span>
           </div>
           <p>
-            音楽と、毎日のリズム。<span>TOHO Calendar © 2026 · 非公式</span>
+            音楽と、毎日のリズム。
+            <span>TOHO Calendar © 2026 · 非公式の学生向けカレンダー</span>
           </p>
         </div>
       </aside>
@@ -503,6 +537,7 @@ export default function CalendarApp() {
               予定を追加
             </button>
           </div>
+          <AppReadiness />
           {message && (
             <div className="notice" role="status">
               <span>{message}</span>
@@ -544,9 +579,7 @@ export default function CalendarApp() {
                       </p>
                       {next && (
                         <span className="hero-confirm">
-                          {next.event.verification === "unverified"
-                            ? "公式情報の確認が必要です"
-                            : "✓ 確定（ユーザー提供）"}
+                          {verificationLabel(next.event)}
                         </span>
                       )}
                     </div>
@@ -608,6 +641,22 @@ export default function CalendarApp() {
                   </button>
                 </section>
               </div>
+              <section className="card launch-calendar">
+                <div className="section-heading">
+                  <h2>月間カレンダー</h2>
+                  <button
+                    className="text-button"
+                    onClick={() => {
+                      setSelected(today);
+                      setMode("month");
+                      navigate("calendar");
+                    }}
+                  >
+                    カレンダーを開く <ArrowRight size={15} />
+                  </button>
+                </div>
+                {calendar()}
+              </section>
               <div className="stats-row">
                 {[
                   {
@@ -742,7 +791,7 @@ export default function CalendarApp() {
                     <span className="warning-label">要確認</span>
                     <h3>初期登録の大学行事について</h3>
                     <p>
-                      公式PDFとの照合は未完了です。変更の可能性があるため、最新の案内を確認してください。
+                      2026年度の公式学年暦画像から抽出しました。判読できない細字は「要確認」です。最新の大学の案内も確認してください。
                     </p>
                   </div>
                   <div className="privacy-note">
@@ -791,6 +840,7 @@ export default function CalendarApp() {
                           JSON.stringify(
                             {
                               version: 1,
+                              academicRevision: ACADEMIC_REVISION,
                               exportedAt: new Date().toISOString(),
                               events,
                             },
@@ -829,7 +879,7 @@ export default function CalendarApp() {
                     try {
                       if (f.size > 5_000_000)
                         throw new Error("ファイルは5MB以内にしてください。");
-                      setImported(decodeBackup(await f.text()));
+                      setImported(readStoredEvents(await f.text()));
                     } catch (err) {
                       setMessage(
                         err instanceof Error
@@ -847,7 +897,7 @@ export default function CalendarApp() {
                   東邦音楽大学の学生向け非公式アプリです。大学が提供・運営するサービスではありません。外部への予定送信、アカウント登録、APIキーは不要です。
                 </p>
                 <p>
-                  繰り返し予定の編集・削除はシリーズ全体に適用されます。月末の繰り返しは同じ日が存在する月のみ表示します。初期データは2026年11月〜2027年2月です。
+                  繰り返し予定の編集・削除はシリーズ全体に適用されます。月末の繰り返しは同じ日が存在する月のみ表示します。初期データは2026年4月〜2027年3月の大学予定です。画像の未読箇所は要確認です。
                 </p>
                 <a
                   className="text-button"
@@ -861,7 +911,17 @@ export default function CalendarApp() {
             </div>
           ) : (
             <section className="card list-card">
+              {view === "class" && <TeachingPanel />}
               <div className="list-tools">
+                <select
+                  aria-label="予定の出典"
+                  value={sourceFilter}
+                  onChange={(e) => setSourceFilter(e.target.value)}
+                >
+                  <option value="all">公式・個人すべて</option>
+                  <option value="official">大学公式予定</option>
+                  <option value="personal">個人予定</option>
+                </select>
                 <label className="search-box">
                   <Search size={18} />
                   <input
@@ -909,21 +969,27 @@ export default function CalendarApp() {
                 </span>
               </div>
               {shown.length
-                ? shown.map((e) => (
-                    <div className="dated-row" key={e.id}>
-                      <div className="date-label">
-                        <strong>
-                          {jpDate(e.date, { month: "numeric", day: "numeric" })}
-                        </strong>
+                ? Array.from(new Set(shown.map((e) => e.date))).map((date) => (
+                    <section className="date-group" key={date}>
+                      <h3>
+                        {jpDate(date, {
+                          year: "numeric",
+                          month: "long",
+                          day: "numeric",
+                          weekday: "short",
+                        })}
                         <span>
-                          {jpDate(e.date, {
-                            year: "numeric",
-                            weekday: "short",
-                          })}
+                          {shown.filter((e) => e.date === date).length}件
                         </span>
-                      </div>
-                      {row(e)}
-                    </div>
+                      </h3>
+                      {shown
+                        .filter((e) => e.date === date)
+                        .map((e) => (
+                          <div className="dated-row" key={e.id}>
+                            {row(e)}
+                          </div>
+                        ))}
+                    </section>
                   ))
                 : empty(
                     query
@@ -991,7 +1057,19 @@ export default function CalendarApp() {
                   try {
                     const next = {
                       ...value,
-                      id: value.id || crypto.randomUUID(),
+                      ...(value.origin === "official"
+                        ? {
+                            id: crypto.randomUUID(),
+                            origin: "personal" as const,
+                            verification: "personal" as const,
+                            sourcePage: undefined,
+                            notes: `大学公式予定から作成した個人用コピー（編集後の内容は未照合）。\n${value.notes}`,
+                          }
+                        : {}),
+                      id:
+                        value.origin === "official"
+                          ? crypto.randomUUID()
+                          : value.id || crypto.randomUUID(),
                     };
                     validateEvents([next]);
                     setEvents((prev) => [
@@ -1051,9 +1129,17 @@ export default function CalendarApp() {
               </div>
               {detail.verification === "unverified" ? (
                 <div className="verification">
-                  要確認：公式情報との照合は未完了です。
+                  要確認：画像の細字・名称・適用範囲を判読しきれない項目です。
                   <a href={SOURCE} target="_blank" rel="noreferrer">
                     大学公式学年暦を確認 <ArrowUpRight size={13} />
+                  </a>
+                </div>
+              ) : detail.verification === "official" ? (
+                <div className="verification official-verified">
+                  公式資料確認済み：提供された学年暦画像の
+                  {detail.sourcePage === 1 ? "前期" : "後期"}ページと照合。
+                  <a href={SOURCE} target="_blank" rel="noreferrer">
+                    参照先の公式PDF <ArrowUpRight size={13} />
                   </a>
                 </div>
               ) : (
@@ -1103,7 +1189,9 @@ export default function CalendarApp() {
                       setDetail(null);
                     }}
                   >
-                    予定を編集
+                    {detail.origin === "official"
+                      ? "個人用コピーを編集"
+                      : "予定を編集"}
                   </button>
                 </div>
               )}

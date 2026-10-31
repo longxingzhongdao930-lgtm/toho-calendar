@@ -217,3 +217,75 @@ test("adding a JSON file keeps existing events and does not duplicate a second i
   await page.getByLabel("予定の出典").selectOption("official");
   expect(await page.locator(".dated-row").count()).toBeGreaterThan(100);
 });
+test("private link decodes locally, clears the URL, and merges only after confirmation", async ({
+  page,
+}) => {
+  const { gzipSync } = await import("node:zlib");
+  const event = {
+    id: "fragment-test",
+    title: "架空の取込リンクテスト",
+    date: "2027-03-01",
+    endDate: "2027-03-01",
+    allDay: true,
+    time: "",
+    endTime: "",
+    category: "personal",
+    kind: "練習",
+    location: "",
+    notes: "架空の検証用データ",
+    important: false,
+    repeat: "none",
+    repeatUntil: "",
+    verification: "personal",
+    origin: "personal",
+  };
+  const payload = gzipSync(
+    JSON.stringify({
+      version: 1,
+      academicRevision: "2026-images-v2",
+      events: [event],
+    }),
+  ).toString("base64url");
+  const requests: string[] = [];
+  page.on("request", (r) => requests.push(r.url()));
+  await page.goto("/?v=fragment-test#toho-import=" + payload);
+  await expect(page.getByRole("dialog")).toContainText("個人予定の取込リンク");
+  expect(page.url()).not.toContain("#");
+  expect(
+    await page.evaluate(() =>
+      JSON.parse(localStorage.getItem("toho-calendar-v1")!).events.some(
+        (e: { id: string }) => e.id === "fragment-test",
+      ),
+    ),
+  ).toBe(false);
+  await expect(
+    page.getByRole("button", { name: "置き換えて復元" }),
+  ).toHaveCount(0);
+  await page.getByRole("button", { name: "既存の予定を残して追加" }).click();
+  await nav(page, "個人予定");
+  await expect(page.locator(".dated-row")).toContainText(event.title);
+  expect(
+    requests.every(
+      (url) =>
+        !url.includes(payload) &&
+        !url.includes(encodeURIComponent(event.title)),
+    ),
+  ).toBe(true);
+});
+test("malformed private links preserve existing schedules and show an error", async ({
+  page,
+}) => {
+  const before = await page.evaluate(
+    () => JSON.parse(localStorage.getItem("toho-calendar-v1")!).events.length,
+  );
+  await page.goto("/#toho-import=invalid");
+  await expect(page.locator(".notice")).toContainText(
+    "取込リンクを読み込めませんでした",
+  );
+  expect(page.url()).not.toContain("#");
+  expect(
+    await page.evaluate(
+      () => JSON.parse(localStorage.getItem("toho-calendar-v1")!).events.length,
+    ),
+  ).toBe(before);
+});

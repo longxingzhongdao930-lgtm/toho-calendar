@@ -2372,3 +2372,11 @@ main {
 .modal-actions {
   flex-wrap: wrap;
 }
+.private-import-note {
+  font-size: 12px;
+  background: var(--hover);
+  padding: 14px;
+  border-radius: 8px;
+  margin-bottom: 15px;
+  color: var(--navy);
+}

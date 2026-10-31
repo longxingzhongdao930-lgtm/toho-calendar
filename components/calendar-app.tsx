@@ -48,6 +48,7 @@ import { readStoredEvents, seedEvents } from "@/lib/seed";
 import { ACADEMIC_REVISION, verificationLabel } from "@/lib/academic";
 import TeachingPanel, { TeachingDaySummary } from "./teaching-panel";
 import AppReadiness from "./app-readiness";
+import { decodePrivateTransfer, TRANSFER_PREFIX } from "@/lib/private-transfer";
 const nav = [
   { id: "home", label: "ホーム", icon: House },
   { id: "calendar", label: "カレンダー", icon: CalendarDays },
@@ -86,7 +87,9 @@ export default function CalendarApp() {
     [detail, setDetail] = useState<CalendarEvent | null>(null),
     [pendingDelete, setPendingDelete] = useState(false),
     [imported, setImported] = useState<CalendarEvent[] | null>(null),
+    [linkImport, setLinkImport] = useState(false),
     [sidebar, setSidebar] = useState(false);
+  const transferStarted = useRef(false);
   const dialogRef = useRef<HTMLDialogElement>(null),
     fileRef = useRef<HTMLInputElement>(null),
     restoreFocus = useRef<HTMLElement | null>(null);
@@ -106,6 +109,47 @@ export default function CalendarApp() {
     }
     setReady(true);
   }, []);
+  useEffect(() => {
+    if (!ready) return;
+    const receive = () => {
+      if (
+        transferStarted.current ||
+        !window.location.hash.startsWith(TRANSFER_PREFIX)
+      )
+        return;
+      transferStarted.current = true;
+      const encoded = window.location.hash.slice(TRANSFER_PREFIX.length);
+      window.history.replaceState(
+        window.history.state,
+        "",
+        window.location.pathname + window.location.search,
+      );
+      setView("settings");
+      setLinkImport(true);
+      setMessage("リンクの予定を端末内で読み込んでいます…");
+      decodePrivateTransfer(encoded)
+        .then((data) => {
+          setImported(data);
+          setMessage(
+            "リンクの予定を読み込みました。確認して追加してください。",
+          );
+        })
+        .catch((error) => {
+          setLinkImport(false);
+          setMessage(
+            error instanceof Error
+              ? error.message
+              : "取込リンクを読み込めませんでした。",
+          );
+        })
+        .finally(() => {
+          transferStarted.current = false;
+        });
+    };
+    window.addEventListener("hashchange", receive);
+    receive();
+    return () => window.removeEventListener("hashchange", receive);
+  }, [ready]);
   useEffect(() => {
     if (!ready || storageBlocked) return;
     try {
@@ -148,6 +192,7 @@ export default function CalendarApp() {
     setEditor(null);
     setDetail(null);
     setImported(null);
+    setLinkImport(false);
     setPendingDelete(false);
   };
   const navigate = (id: string) => {
@@ -881,6 +926,7 @@ export default function CalendarApp() {
                     try {
                       if (f.size > 5_000_000)
                         throw new Error("ファイルは5MB以内にしてください。");
+                      setLinkImport(false);
                       setImported(readStoredEvents(await f.text()));
                     } catch (err) {
                       setMessage(
@@ -1072,7 +1118,7 @@ export default function CalendarApp() {
         ref={dialogRef}
         className="modal"
         aria-label={
-          editor ? "予定を編集" : detail ? "予定の詳細" : "バックアップを復元"
+          editor ? "予定を編集" : detail ? "予定の詳細" : "予定を読み込む"
         }
         onCancel={(e) => {
           e.preventDefault();
@@ -1248,10 +1294,20 @@ export default function CalendarApp() {
             </>
           ) : imported ? (
             <>
-              <h2>バックアップを復元</h2>
+              <h2>予定を読み込む</h2>
+              {linkImport && (
+                <p className="private-import-note">
+                  個人予定の取込リンクです。予定は外部へ送信せず、このブラウザ内だけに保存します。普段使うSafariまたはホーム画面のアプリで読み込んでください。
+                </p>
+              )}
               <p>
                 {imported.length}
-                件を読み込みました。「追加」は既存の予定を保持します。同じIDは取り込み内容で更新され、同一内容の予定は重複させません。「置き換え」は現在の全予定を消すため、先に書き出してください。
+                件を読み込みました。「追加」は既存の予定を保持します。同じIDは取り込み内容で更新され、同一内容の予定は重複させません。
+                {!linkImport && (
+                  <>
+                    「置き換え」は現在の全予定を消すため、先に書き出してください。
+                  </>
+                )}
               </p>
               <div className="modal-actions">
                 <button className="secondary-button" onClick={close}>
@@ -1278,17 +1334,19 @@ export default function CalendarApp() {
                 >
                   既存の予定を残して追加
                 </button>
-                <button
-                  className="secondary-button"
-                  onClick={() => {
-                    setEvents(imported);
-                    setStorageBlocked(false);
-                    close();
-                    setMessage("バックアップを復元しました。");
-                  }}
-                >
-                  置き換えて復元
-                </button>
+                {!linkImport && (
+                  <button
+                    className="secondary-button"
+                    onClick={() => {
+                      setEvents(imported);
+                      setStorageBlocked(false);
+                      close();
+                      setMessage("バックアップを復元しました。");
+                    }}
+                  >
+                    置き換えて復元
+                  </button>
+                )}
               </div>
             </>
           ) : null}
